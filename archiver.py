@@ -8,6 +8,9 @@ class Archiver(object):
     def __init__(self):
         self.logname = "log"
 
+    def exists(self, path):
+        pass # TODO
+
     def folder(self, path):
         if path:
             if path[-1] != '/': path += "/"
@@ -28,8 +31,17 @@ class Archiver(object):
     def log(self, string):
         self.file(self.logname, 'a').write(string + '\n')
 
+    def copy(self, src, dst):
+        return self.execute("cp -r " + src + " " + dst)
+
+    def move(self, src, dst):
+        ret = self.copy(src, dst)
+        if not ret['err']:
+            return self.remove(src)
+        return ret
+
     def remove(self, files):
-        self.execute("rm -r " + files)
+        return self.execute("rm -r " + files)
 
     def zipToAnimation(self, sourcepath, destpath, filename, framedata):
         destpath = self.folder(destpath)

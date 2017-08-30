@@ -1,28 +1,20 @@
 import time, requests
 from bs4 import BeautifulSoup
+from abc import ABCMeta, abstractmethod
 
 from archiver import Archiver
 
-class WebClient(object):
+class WebClient(metaclass=ABCMeta):
 
     def __init__(self):
         self.session = requests.Session()
         self.archiver = Archiver()
         self.response = ""
         self.html_soup = ""
-        self.urls = { 'loginpage': "https://accounts.pixiv.net/login",
-                      'loginpost': "https://accounts.pixiv.net/api/login" }
 
-    def login(self, uname, pword): # to pixiv?
-        print("Logging in...")
-        self.traverse(self.urls['loginpage'])
-        
-        form = self.parseForm("/login")
-        form['pixiv_id'] = uname
-        form['password'] = pword
-
-        self.response = self.session.post(self.urls['loginpost'], data = form)
-        return self.response.status_code
+    @abstractmethod
+    def login():
+        pass
 
     def tryGet(self, url, trials = 5):
         while trials:

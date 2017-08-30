@@ -12,12 +12,26 @@ class PixivClient(WebClient):
         WebClient.__init__(self)
         self.users = {}
         self.works = {}
+        self.urls = { 'loginpage': "https://accounts.pixiv.net/login",
+                      'loginpost': "https://accounts.pixiv.net/api/login" }
+
         self.loadCache()
-        
+
         if self.login(username, password) != 200: # not enough?
             raise RuntimeError("Login failed. Wrong username and/or password?")
 
-    def dumpCache(self): 
+    def login(self, uname, pword):
+        print("Logging in to Pixiv...")
+        self.traverse(self.urls['loginpage'])
+
+        form = self.parseForm("/login")
+        form['pixiv_id'] = uname
+        form['password'] = pword
+
+        self.response = self.session.post(self.urls['loginpost'], data = form)
+        return self.response.status_code
+
+    def dumpCache(self):
         json.dump([self.users, self.works], self.archiver.file("cache", 'w'))
 
     def loadCache(self):
@@ -28,23 +42,23 @@ class PixivClient(WebClient):
         self.traverse(url)
         num_items = int(self.parseElement("span class=count-badge").string.split()[0])
         return math.ceil(num_items / perpage)
-        
+
     def _scrapeFollowedUsers(self):
         baseurl = "https://www.pixiv.net/bookmark.php?type=user&rest=show"
         num_pages = self._countPages(baseurl, 48)
-           
+
+        new = []
+        rm = []
         for p in range(1, num_pages + 1):
             uprint("Scraping followed users... (%.0f %%)" % (p / num_pages * 100))
             self.traverse(baseurl + "&p=" + str(p))
             udata = self.parseAllElements("a", "div class=userdata")
-            
-            new = []
+
             for u in udata:
                 if u['data-user_id'] not in self.users:
                     self.users[u['data-user_id']] = {}
                     new.append(u['data-user_id'])
-       
-            rm = []
+
             for uid in [u['data-user_id'] for u in udata]:
                 if uid not in self.users:
                     del self.users[uid]
@@ -68,7 +82,7 @@ class PixivClient(WebClient):
             uprint("Scraping user " + userid + "'s information (%.0f %%)" % (p / num_pages * 100))
 
             for i in self.parseAllElements("a class=work"):
-                entry = {'url': "https://www.pixiv.net" + i['href'], 
+                entry = {'url': "https://www.pixiv.net" + i['href'],
                          'classes': i['class']}
                 i = i.find("img")
                 workid = i['data-id']
@@ -94,12 +108,12 @@ class PixivClient(WebClient):
             except Exception as e:
                 self.archiver.log(str(e))
             print("Updated %s's info (%d / %d)" % (self.users[uid]['name'], i + 1, len(self.users)))
-        
+
     def _scrapeUserIllust(self, userid):
         illust = self.users[userid]['illust']
         for num, (workid, entry) in enumerate(illust.items()):
             if self._getWorkStatus(workid) in ["info", "okay"]: continue
-            
+
             uprint("Scraping user " + userid + "'s illustration information (%.0f %%)" % ((num + 1) / len(illust) * 100))
             self.traverse(entry['url'])
 
@@ -133,7 +147,7 @@ class PixivClient(WebClient):
 
             entry['status'] = "info"
             self.users[userid]['illust'][workid] = entry
-            
+
         print() # done
 
     def printUserInfo(self, userid):
@@ -144,7 +158,7 @@ class PixivClient(WebClient):
 
 
     def _getWorkStatus(self, workid):
-        try: 
+        try:
             userid = self.works[workid]
             return self.users[userid]['illust'][workid]['status']
         except:
@@ -162,7 +176,7 @@ class PixivClient(WebClient):
                 self.archiver.log(str(e))
                 status = "fail"
             self.users[userid]['illust'][workid]['status'] = status
-            
+
         print() # done
 
     def _updateUserImage(self, userid, path):
@@ -204,7 +218,7 @@ class PixivClient(WebClient):
             filename = entry['images'][0].split('/')[-1]
             if self.saveFile(entry['images'][0], folder + filename) != 200:
                 return "fail"
-        
+
         else:
             return "typ?"
 
